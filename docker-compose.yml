@@ -1,0 +1,9 @@
+version: '3.8'
+services:
+  chrome-test:
+    build: .
+    volumes:
+      - ./target:/app/target
+    shm_size: '2gb'
+    environment:
+      - DISPLAY=:99
