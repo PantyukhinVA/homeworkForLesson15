@@ -1,14 +1,4 @@
-# Базовый образ с Java и Maven
-FROM maven:3.8.6-eclipse-temurin-17 as builder
-
-WORKDIR /app
-COPY pom.xml .
-RUN mvn dependency:go-offline
-COPY src/ ./src/
-RUN mvn package
-
-# Финальный образ
-FROM eclipse-temurin:17-jre
+FROM maven:3.8.6-eclipse-temurin-17
 
 # Установка Chrome и зависимостей
 RUN apt-get update && \
@@ -19,7 +9,7 @@ RUN apt-get update && \
     apt-get install -y google-chrome-stable xvfb libgbm-dev && \
     rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /app/target/chrome-test.jar /app/
-COPY --from=builder /app/target/dependency /app/libs/
+WORKDIR /app
+COPY . .
 
-CMD xvfb-run -a java -jar /app/chrome-test.jar
+CMD xvfb-run -a mvn test

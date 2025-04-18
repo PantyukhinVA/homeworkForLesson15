@@ -14,8 +14,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class YandexSearchTest {
     private WebDriver driver;
@@ -53,9 +53,9 @@ public class YandexSearchTest {
         // 1. Открыть Яндекс
         driver.get("https://ya.ru");
 
-        // 2. Ввести в строке поиска «руддщцкщдв»
+        // 2. Ввести в строке поиска «руддщ цкщдв»
         WebElement searchInput = driver.findElement(By.xpath("//input[@aria-label='Запрос']"));
-        searchInput.sendKeys("руддщцкщдв");
+        searchInput.sendKeys("руддщ цкщдв");
 
         // 3. Нажать на кнопку «Найти»
         WebElement searchButton = driver.findElement(By.xpath("//button[normalize-space()='Найти']"));
@@ -64,11 +64,11 @@ public class YandexSearchTest {
         // 4. Проверить, что строка поиска заполнена значением "hello world"
         WebElement searchInputAfter = driver.findElement(By.xpath("//input[@aria-label='Запрос']"));
         String searchFieldValue = searchInputAfter.getDomAttribute("value");
-        assertNotEquals(searchFieldValue, "hello world", "Search field doesn't contain 'hello world'");
+        assertEquals(searchFieldValue, "hello world", "Search field equals 'hello world'");
 
         // И проверить, что название окна содержит "hello world"
         String pageTitle = driver.getTitle();
-        assertFalse(pageTitle.contains("hello world"), "Page title doesn't contain 'hello world'");
+        assertTrue(pageTitle.contains("hello world"), "Page title contain 'hello world'");
     }
 
     @AfterMethod
