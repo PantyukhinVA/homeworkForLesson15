@@ -10,20 +10,35 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class YandexSearchTest {
     private WebDriver driver;
+    private static final String PROPERTIES_FILE = "application.properties";
+    private static final Properties properties = new Properties();
+
+    static {
+        try (InputStream input = YandexSearchTest.class.getClassLoader().getResourceAsStream(PROPERTIES_FILE)) {
+            if (input == null) {
+                throw new RuntimeException("Файл " + PROPERTIES_FILE + " не найден!");
+            }
+            properties.load(input);
+        } catch (IOException e) {
+            throw new RuntimeException("Ошибка загрузки конфигурации", e);
+        }
+    }
 
     @BeforeClass
     public static void setupAll() {
-        // WebDriverManager.chromedriver().driverVersion("126.0.6478.126").setup();
-        WebDriverManager.chromedriver().setup();
+        WebDriverManager.chromedriver().driverVersion(properties.getProperty("chrome.version")).setup();
     }
 
     @BeforeMethod
@@ -40,7 +55,6 @@ public class YandexSearchTest {
         ChromeOptions options = new ChromeOptions();
         options.addArguments("--no-sandbox");
         options.addArguments("--disable-dev-shm-usage");
-        options.addArguments("--headless=new");
         options.addArguments("--disable-gpu");
         options.addArguments("--window-size=1920,1080");
         options.addArguments("--user-data-dir=" + System.getProperty("user.dir") + "/target/profile");
@@ -49,9 +63,13 @@ public class YandexSearchTest {
     }
 
     @Test
-    public void testYandexSearch() {
+    public void testYandexSearch() throws InterruptedException {
+        System.out.println("Testing Yandex Search");
         // 1. Открыть Яндекс
         driver.get("https://ya.ru");
+
+        // Ждём (время для ручного ввода капчи, если появится)
+        TimeUnit.SECONDS.sleep(Long.parseLong(properties.getProperty("delay")));
 
         // 2. Ввести в строке поиска «руддщ цкщдв»
         WebElement searchInput = driver.findElement(By.xpath("//input[@aria-label='Запрос']"));
@@ -60,6 +78,9 @@ public class YandexSearchTest {
         // 3. Нажать на кнопку «Найти»
         WebElement searchButton = driver.findElement(By.xpath("//button[normalize-space()='Найти']"));
         searchButton.click();
+
+        // Ждём (время для ручного ввода капчи, если появится)
+        TimeUnit.SECONDS.sleep(Long.parseLong(properties.getProperty("delay")));
 
         // 4. Проверить, что строка поиска заполнена значением "hello world"
         WebElement searchInputAfter = driver.findElement(By.xpath("//input[@aria-label='Запрос']"));
