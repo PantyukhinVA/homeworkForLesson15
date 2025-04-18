@@ -4,6 +4,8 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
@@ -14,18 +16,23 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.Properties;
-import java.util.concurrent.TimeUnit;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class YandexSearchTest {
     private WebDriver driver;
+    private WebDriverWait wait;
     private static final String PROPERTIES_FILE = "application.properties";
     private static final Properties properties = new Properties();
 
     static {
+        loadProperties();
+    }
+
+    private static void loadProperties() {
         try (InputStream input = YandexSearchTest.class.getClassLoader().getResourceAsStream(PROPERTIES_FILE)) {
             if (input == null) {
                 throw new RuntimeException("Файл " + PROPERTIES_FILE + " не найден!");
@@ -38,58 +45,93 @@ public class YandexSearchTest {
 
     @BeforeClass
     public static void setupAll() {
-        WebDriverManager.chromedriver().driverVersion(properties.getProperty("chrome.version")).setup();
+        WebDriverManager.chromedriver().browserVersion(properties.getProperty("chrome.version", "")).setup();
     }
 
     @BeforeMethod
     public void setup() {
+        initializeProfileDirectory();
+        ChromeOptions options = createChromeOptions();
+        driver = new ChromeDriver(options);
+        wait = new WebDriverWait(driver, Duration.ofSeconds(getTimeout()));
+    }
+
+    private void initializeProfileDirectory() {
         Path profileDir = Paths.get(System.getProperty("user.dir"), "target", "profile");
         try {
             if (!Files.exists(profileDir)) {
                 Files.createDirectories(profileDir);
             }
         } catch (IOException e) {
-            throw new RuntimeException("Failed to initialize profile directory", e);
+            throw new RuntimeException("Не удалось создать директорию профиля", e);
         }
+    }
 
+    private ChromeOptions createChromeOptions() {
         ChromeOptions options = new ChromeOptions();
-        options.addArguments("--no-sandbox");
-        options.addArguments("--disable-dev-shm-usage");
-        options.addArguments("--disable-gpu");
-        options.addArguments("--window-size=1920,1080");
-        options.addArguments("--user-data-dir=" + System.getProperty("user.dir") + "/target/profile");
+        options.addArguments(
+                "--no-sandbox", // Отключение sandbox для работы в Docker/CI
+                "--disable-dev-shm-usage", // Решение проблем с ограниченными ресурсами
+                "--remote-debugging-port=9222", // Важно для исправления ошибки DevToolsActivePort
+                "--disable-gpu", // Отключение GPU (может помочь в CI)
+                "--window-size=1920,1080",
+                "--user-data-dir=" + System.getProperty("user.dir") + "/target/profile"
+        );
 
-        driver = new ChromeDriver(options);
+        return options;
+    }
+
+    private long getTimeout() {
+        return Long.parseLong(properties.getProperty("timeout", "10"));
     }
 
     @Test
-    public void testYandexSearch() throws InterruptedException {
-        System.out.println("Testing Yandex Search");
-        // 1. Открыть Яндекс
+    public void testYandexSearch() {
+        System.out.println("Запуск теста поиска в Яндексе");
+
+        openYandex();
+        performSearch();
+        verifySearchResults();
+    }
+
+    private void openYandex() {
         driver.get("https://ya.ru");
+        waitForPotentialCaptcha();
+    }
 
-        // Ждём (время для ручного ввода капчи, если появится)
-        TimeUnit.SECONDS.sleep(Long.parseLong(properties.getProperty("delay")));
-
-        // 2. Ввести в строке поиска «руддщ цкщдв»
-        WebElement searchInput = driver.findElement(By.xpath("//input[@aria-label='Запрос']"));
+    private void performSearch() {
+        WebElement searchInput = wait.until(ExpectedConditions.visibilityOfElementLocated(
+                By.xpath("//input[@aria-label='Запрос']")));
         searchInput.sendKeys("руддщ цкщдв");
 
-        // 3. Нажать на кнопку «Найти»
-        WebElement searchButton = driver.findElement(By.xpath("//button[normalize-space()='Найти']"));
+        WebElement searchButton = wait.until(ExpectedConditions.elementToBeClickable(
+                By.xpath("//button[normalize-space()='Найти']")));
         searchButton.click();
 
-        // Ждём (время для ручного ввода капчи, если появится)
-        TimeUnit.SECONDS.sleep(Long.parseLong(properties.getProperty("delay")));
+        waitForPotentialCaptcha();
+    }
 
-        // 4. Проверить, что строка поиска заполнена значением "hello world"
-        WebElement searchInputAfter = driver.findElement(By.xpath("//input[@aria-label='Запрос']"));
-        String searchFieldValue = searchInputAfter.getDomAttribute("value");
-        assertEquals(searchFieldValue, "hello world", "Search field equals 'hello world'");
+    private void waitForPotentialCaptcha() {
+        try {
+            Thread.sleep(getDelay() * 1000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Прерывание ожидания капчи", e);
+        }
+    }
 
-        // И проверить, что название окна содержит "hello world"
+    private long getDelay() {
+        return Long.parseLong(properties.getProperty("delay", "5"));
+    }
+
+    private void verifySearchResults() {
+        WebElement searchInputAfter = wait.until(ExpectedConditions.visibilityOfElementLocated(
+                By.xpath("//input[@aria-label='Запрос']")));
+        String searchFieldValue = searchInputAfter.getAttribute("value");
+        assertEquals(searchFieldValue, "hello world", "Поле поиска должно содержать 'hello world'");
+
         String pageTitle = driver.getTitle();
-        assertTrue(pageTitle.contains("hello world"), "Page title contain 'hello world'");
+        assertTrue(pageTitle.contains("hello world"), "Заголовок страницы должен содержать 'hello world'");
     }
 
     @AfterMethod
