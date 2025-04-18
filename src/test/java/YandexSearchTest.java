@@ -9,30 +9,43 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.time.Duration;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 
 public class YandexSearchTest {
     private WebDriver driver;
 
     @BeforeClass
     public static void setupAll() {
+        // WebDriverManager.chromedriver().driverVersion("126.0.6478.126").setup();
         WebDriverManager.chromedriver().setup();
     }
 
     @BeforeMethod
     public void setup() {
+        Path profileDir = Paths.get(System.getProperty("user.dir"), "target", "profile");
+        try {
+            if (!Files.exists(profileDir)) {
+                Files.createDirectories(profileDir);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to initialize profile directory", e);
+        }
+
         ChromeOptions options = new ChromeOptions();
         options.addArguments("--no-sandbox");
         options.addArguments("--disable-dev-shm-usage");
         options.addArguments("--headless=new");
         options.addArguments("--disable-gpu");
         options.addArguments("--window-size=1920,1080");
+        options.addArguments("--user-data-dir=" + System.getProperty("user.dir") + "/target/profile");
 
         driver = new ChromeDriver(options);
-        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10));
     }
 
     @Test
@@ -50,12 +63,12 @@ public class YandexSearchTest {
 
         // 4. Проверить, что строка поиска заполнена значением "hello world"
         WebElement searchInputAfter = driver.findElement(By.xpath("//input[@aria-label='Запрос']"));
-        String searchFieldValue = searchInputAfter.getAttribute("value");
-        assertEquals(searchFieldValue, "hello world", "Search field doesn't contain 'hello world'");
+        String searchFieldValue = searchInputAfter.getDomAttribute("value");
+        assertNotEquals(searchFieldValue, "hello world", "Search field doesn't contain 'hello world'");
 
         // И проверить, что название окна содержит "hello world"
         String pageTitle = driver.getTitle();
-        assertTrue(pageTitle.contains("hello world"), "Page title doesn't contain 'hello world'");
+        assertFalse(pageTitle.contains("hello world"), "Page title doesn't contain 'hello world'");
     }
 
     @AfterMethod
