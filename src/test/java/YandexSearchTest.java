@@ -9,6 +9,8 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.time.Duration;
+
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -17,7 +19,7 @@ public class YandexSearchTest {
 
     @BeforeClass
     public static void setupAll() {
-        WebDriverManager.chromedriver().driverVersion("126.0.6478.126").setup();
+        WebDriverManager.chromedriver().setup();
     }
 
     @BeforeMethod
@@ -30,10 +32,11 @@ public class YandexSearchTest {
         options.addArguments("--window-size=1920,1080");
 
         driver = new ChromeDriver(options);
+        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10));
     }
 
     @Test
-    public void testYandexSearch() throws InterruptedException {
+    public void testYandexSearch() {
         // 1. Открыть Яндекс
         driver.get("https://ya.ru");
 
